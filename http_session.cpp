@@ -6,6 +6,7 @@
 
 #include "kitman.hpp"
 #include "mime.hpp"
+#include "static.hpp"
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -272,12 +273,12 @@ bool http_session::handle_request()
 		return true;
 	}
 
-	if(!web_root_.empty() && handle_web_root())
+	if(web_root_.empty())
 	{
-		return true;
+		return handle_static();
 	}
 
-	return false;
+	return handle_web_root();
 }
 
 bool http_session::handle_rest()
@@ -319,6 +320,41 @@ bool http_session::handle_rest()
 		}
 
 		return true;
+	}
+
+	return false;
+}
+
+bool http_session::handle_static()
+{
+	auto path = request_.target();
+
+	path.remove_prefix(1);
+
+	if(path.empty())
+	{
+		path = "index.html";
+	}
+
+	for(const auto &file : static_files)
+	{
+		if(file.name == path)
+		{
+			http::response<http::span_body<const unsigned char>> response
+			(
+				http::status::ok, request_.version()
+			);
+
+			response.keep_alive(request_.keep_alive());
+			response.set(http::field::content_encoding, "deflate");
+			response.set(http::field::content_type, file.type);
+			response.content_length(file.size);
+			response.body() = {file.body, file.size};
+
+			send(std::move(response));
+
+			return true;
+		}
 	}
 
 	return false;

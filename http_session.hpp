@@ -32,6 +32,7 @@ private:
 	void close();
 	bool handle_request();
 	bool handle_rest();
+	bool handle_static();
 	bool handle_web_root();
 	void on_read(const boost::beast::error_code &ec, std::size_t);
 	void on_write(bool close, const boost::beast::error_code &ec, std::size_t);
