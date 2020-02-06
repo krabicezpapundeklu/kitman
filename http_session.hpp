@@ -50,6 +50,8 @@ private:
 	void get_streams(const std::cmatch &params, const nlohmann::json &body);
 	void merge(const std::cmatch &params, const nlohmann::json &body);
 
+	static std::map<std::string, std::string> parse_query_string(const std::string &query_string);
+
 	template
 	<
 		typename Response

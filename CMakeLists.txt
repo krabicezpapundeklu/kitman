@@ -9,6 +9,8 @@ set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
 
 add_executable(kitman
+	catalog_generator.cpp
+	catalog_generator.hpp
 	db.cpp
 	db.hpp
 	exception.cpp
