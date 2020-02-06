@@ -23,7 +23,12 @@ int main(int argc, char **argv)
 
 	options.add_options()
 		("db", po::value(&db_path)->default_value("kitman.db"), "database file to use")
-		("port", po::value(&port)->default_value(8080), "port to listen on")
+		("port", po::value(&port)->default_value(8080), "port to listen on");
+
+
+	po::options_description hidden_options;
+
+	hidden_options.add_options()
 		("shell", "start sql shell")
 		("web-root", po::value(&web_root)->default_value(""), "web-site root");
 
@@ -31,7 +36,7 @@ int main(int argc, char **argv)
 
 	try
 	{
-		po::store(po::parse_command_line(argc, argv, options), vm);
+		po::store(po::parse_command_line(argc, argv, po::options_description{}.add(options).add(hidden_options)), vm);
 		po::notify(vm);
 	}
 	catch(const std::exception &e)
