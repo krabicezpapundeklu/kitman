@@ -5,23 +5,7 @@
 #include "exception.hpp"
 #include "sqlite3.h"
 
-class database
-{
-public:
-	explicit database(const char *db_path);
-
-	database(const database &) = delete;
-	database &operator=(const database &) = delete;
-
-	operator sqlite3 *();
-
-	int get_last_id() const;
-
-	~database();
-
-private:
-	sqlite3 *db_ = nullptr;
-};
+class database;
 
 class statement
 {
@@ -35,29 +19,30 @@ public:
 	<
 		typename Value, typename ...Values
 	>
-	void bind(Value value, Values ...values)
+	void bind(Value &&value, Values &&...values)
 	{
 		reset();
-		bind_value(1, value, values...);
+		bind_values(1, value, values...);
 	}
 
 	template
 	<
 		typename ...Values
 	>
-	static void exec(sqlite3 *db, const char *sql, Values ...values)
+	int exec(Values &&...values)
 	{
-		statement stmt;
+		reset();
+		bind_values(1, values...);
+		step();
 
-		stmt.prepare(db, sql);
-		stmt.bind_value(1, values...);
-		stmt.step();
+		return sqlite3_last_insert_rowid(sqlite3_db_handle(stmt_));
 	}
 
 	int get_int(int index) const;
 	const char *get_text(int index) const;
 
-	void prepare(sqlite3 *db, const char *sql);
+	statement &prepare(sqlite3 *db, const char *sql);
+
 	void reset();
 	bool step();
 
@@ -66,7 +51,7 @@ public:
 private:
 	sqlite3_stmt *stmt_ = nullptr;
 
-	void bind_value(int)
+	void bind_values(int)
 	{
 	}
 
@@ -82,13 +67,11 @@ private:
 	{
 		if(value)
 		{
-			bind(index, *value);
-			return;
+			bind_value(index, *value);
 		}
-
-		if(sqlite3_bind_null(stmt_, index))
+		else
 		{
-			throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
+			check(sqlite3_bind_null(stmt_, index));
 		}
 	}
 
@@ -96,17 +79,19 @@ private:
 	<
 		typename Value, typename ...Values
 	>
-	void bind_value(int index, Value value, Values ...values)
+	void bind_values(int index, Value &&value, Values &&...values)
 	{
 		bind_value(index, value);
-		bind_value(index + 1, values...);
+		bind_values(index + 1, values...);
 	}
+
+	void check(int result) const;
 };
 
 class transaction
 {
 public:
-	explicit transaction(sqlite3 *db);
+	explicit transaction(database &db);
 
 	transaction(const transaction &) = delete;
 	transaction &operator=(const transaction &) = delete;
@@ -114,5 +99,29 @@ public:
 	~transaction();
 
 private:
-	sqlite3 *db_;
+	database &db_;
+};
+
+class database
+{
+public:
+	explicit database(const char *db_path);
+
+	database(const database &) = delete;
+	database &operator=(const database &) = delete;
+
+	operator sqlite3 *();
+
+	int get_last_id() const;
+
+	~database();
+
+private:
+	friend class transaction;
+
+	sqlite3 *db_ = nullptr;
+
+	statement begin_transaction_;
+	statement commit_transaction_;
+	statement rollback_transaction_;
 };

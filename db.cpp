@@ -8,6 +8,10 @@ database::database(const char *db_path)
 		sqlite3_close(db_);
 		throw exception{error};
 	}
+
+	begin_transaction_.prepare(db_, "BEGIN TRANSACTION");
+	commit_transaction_.prepare(db_, "COMMIT TRANSACTION");
+	rollback_transaction_.prepare(db_, "ROLLBACK TRANSACTION");
 }
 
 database::operator sqlite3 *()
@@ -27,23 +31,22 @@ database::~database()
 
 void statement::bind_value(int index, int value)
 {
-	if(sqlite3_bind_int(stmt_, index, value))
-	{
-		throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
-	}
+	check(sqlite3_bind_int(stmt_, index, value));
 }
 
 void statement::bind_value(int index, const char *value)
 {
-	if(sqlite3_bind_text(stmt_, index, value, -1, nullptr))
-	{
-		throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
-	}
+	check(sqlite3_bind_text(stmt_, index, value, -1, nullptr));
 }
 
 void statement::bind_value(int index, const std::string &value)
 {
-	if(sqlite3_bind_text(stmt_, index, value.data(), value.size(), nullptr))
+	check(sqlite3_bind_text(stmt_, index, value.data(), value.size(), nullptr));
+}
+
+void statement::check(int result) const
+{
+	if(result)
 	{
 		throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
 	}
@@ -59,7 +62,7 @@ const char *statement::get_text(int index) const
 	return reinterpret_cast<const char *>(sqlite3_column_text(stmt_, index));
 }
 
-void statement::prepare(sqlite3 *db, const char *sql)
+statement &statement::prepare(sqlite3 *db, const char *sql)
 {
 	if(stmt_)
 	{
@@ -67,23 +70,21 @@ void statement::prepare(sqlite3 *db, const char *sql)
 		stmt_ = nullptr;
 	}
 
-	if(sqlite3_prepare_v2(db, sql, -1, &stmt_, nullptr))
-	{
-		throw exception{sqlite3_errmsg(db)};
-	}
+	check(sqlite3_prepare_v2(db, sql, -1, &stmt_, nullptr));
+
+	return *this;
 }
 
 void statement::reset()
 {
-	if(sqlite3_reset(stmt_))
-	{
-		throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
-	}
+	check(sqlite3_reset(stmt_));
 }
 
 bool statement::step()
 {
-	switch(sqlite3_step(stmt_))
+	const auto result = sqlite3_step(stmt_);
+
+	switch(result)
 	{
 	case SQLITE_ROW:
 		return true;
@@ -92,7 +93,8 @@ bool statement::step()
 		return false;
 
 	default:
-		throw exception{sqlite3_errmsg(sqlite3_db_handle(stmt_))};
+		check(result);
+		return false;
 	}
 }
 
@@ -101,20 +103,20 @@ statement::~statement()
 	sqlite3_finalize(stmt_);
 }
 
-transaction::transaction(sqlite3 *db)
+transaction::transaction(database &db)
 	: db_{db}
 {
-	statement::exec(db_, "BEGIN TRANSACTION");
+	db_.begin_transaction_.exec();
 }
 
 transaction::~transaction()
 {
 	if(std::uncaught_exceptions())
 	{
-		statement::exec(db_, "ROLLBACK TRANSACTION");
+		db_.rollback_transaction_.exec();
 	}
 	else
 	{
-		statement::exec(db_, "COMMIT TRANSACTION");
+		db_.commit_transaction_.exec();
 	}
 }

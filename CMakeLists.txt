@@ -17,6 +17,7 @@ add_executable(kitman
 	http_listener.hpp
 	http_session.cpp
 	http_session.hpp
+	json.hpp
 	kitman.cpp
 	kitman.hpp
 	main.cpp
