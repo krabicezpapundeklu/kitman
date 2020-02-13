@@ -156,7 +156,7 @@ void catalog_generator::merge(std::vector<int> &replay_path, const std::vector<i
 		{
 			const auto &to_commit = commits_[to_path[j]];
 
-			if(from_commit.merge_from == to_commit.id || to_commit.merge_from == from_commit.id)
+			if(/* from_commit.merge_from == to_commit.id || */ to_commit.merge_from == from_commit.id)
 			{
 				replay(replay_path, from_path, i + 1, from_path.size());
 				return;
