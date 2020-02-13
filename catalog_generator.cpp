@@ -133,16 +133,23 @@ std::vector<upgrade_path> catalog_generator::get_upgrade_paths(const std::vector
 			work.emplace(commit.merge_from);
 		}
 
+		auto done = true;
+
 		for(const auto &upgrade_path : upgrade_paths)
 		{
 			if(from_to.find(upgrade_path.commit_id) == from_to.cend())
 			{
-				goto done;
+				done = false;
+				break;
 			}
+		}
+
+		if(done)
+		{
+			break;
 		}
 	}
 
-done:
 	for(auto &upgrade_path : upgrade_paths)
 	{
 		auto commit_id = upgrade_path.commit_id;
