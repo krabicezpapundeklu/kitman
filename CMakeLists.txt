@@ -29,6 +29,8 @@ add_executable(kitman
 	shell.c
 	sqlite3.c
 	sqlite3.h
+	utils.cpp
+	utils.hpp
 )
 
 add_executable(static_generator

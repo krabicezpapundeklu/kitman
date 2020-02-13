@@ -142,9 +142,6 @@ private:
 	statement select_tag_commit_;
 	statement update_stream_;
 
-	static std::tuple<int, const char *> get_version(const char *tag);
-	static void sort_tags(std::vector<std::string> &tags, const std::string &last_tag = "");
-
 	void init_db();
 	void prepare_statements();
 };

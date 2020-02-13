@@ -7,6 +7,7 @@
 #include "kitman.hpp"
 #include "mime.hpp"
 #include "static.hpp"
+#include "utils.hpp"
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -122,51 +123,7 @@ void http_session::get_catalog(const std::cmatch &params, const nlohmann::json &
 
 	std::stringstream ss;
 
-	ss << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-	ss << "<upgrades>\n";
-
-	auto first_upgrade = true;
-
-	for(const auto &upgrade : upgrades)
-	{
-		if(first_upgrade)
-		{
-			first_upgrade = false;
-		}
-		else
-		{
-			ss << '\n';
-		}
-
-		ss << "\t<upgrade from=\"" << upgrade.from << "\" release=\"" << std::boolalpha << upgrade.is_release << "\">\n";
-
-		auto first_comment = true;
-		std::string last_comment;
-
-		for(const auto &script : upgrade.scripts)
-		{
-			if(script.comment != last_comment)
-			{
-				if(first_comment)
-				{
-					first_comment = false;
-				}
-				else
-				{
-					ss << '\n';
-				}
-
-				last_comment = script.comment;
-				ss << "\t\t<!-- " << script.comment << " -->\n";
-			}
-
-			ss << "\t\t<script>" << script.path << "</script>\n";
-		}
-
-		ss << "\t</upgrade>\n";
-	}
-
-	ss << "</upgrades>\n";
+	ss << upgrades;
 
 	http::response<http::string_body> response{http::status::ok, request_.version()};
 
