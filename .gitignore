@@ -2,4 +2,4 @@
 build/
 
 CMakeLists.txt.user
-kitman.db*
+*.db

@@ -7,14 +7,13 @@
 class catalog_generator
 {
 public:
-	catalog_generator(kitman &kitman, int head, int stop_commit);
+	catalog_generator(kitman &kitman, int head);
 
 	std::vector<upgrade> generate(const std::vector<std::string> &paths);
 
 private:
 	kitman &kitman_;
 	int head_;
-	int stop_commit_;
 
 	std::unordered_map<int, path_commit> commits_;
 	std::unordered_map<int, std::vector<file>> files_;

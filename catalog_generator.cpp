@@ -5,8 +5,8 @@
 
 #include <boost/format.hpp>
 
-catalog_generator::catalog_generator(kitman &kitman, int head, int stop_commit)
-	: kitman_{kitman}, head_{head}, stop_commit_{stop_commit}, commits_{get_commits(head)}
+catalog_generator::catalog_generator(kitman &kitman, int head)
+	: kitman_{kitman}, head_{head}, commits_{get_commits(head)}
 {
 }
 
@@ -24,14 +24,13 @@ std::vector<upgrade> catalog_generator::generate(const std::vector<std::string> 
 		replay_path.clear();
 		scripts.clear();
 
-		auto &upgrade = upgrades.emplace_back(upgrade_path.from);
 		auto path = get_direct_path(upgrade_path.commit_id);
-
 		const auto replay_from = path.size();
 
 		path.insert(path.end(), upgrade_path.shortest_path.cbegin() + 1, upgrade_path.shortest_path.cend());
-
 		replay(replay_path, path, replay_from, path.size());
+
+		auto &upgrade = upgrades.emplace_back(upgrade_path.from);
 
 		for(auto commit_id : replay_path)
 		{
@@ -63,12 +62,6 @@ std::vector<int> catalog_generator::get_direct_path(int to)
 	do
 	{
 		path.emplace_back(commit_id);
-
-		if(commit_id == stop_commit_)
-		{
-			break;
-		}
-
 		commit_id = commits_[commit_id].parent;
 	}
 	while(commit_id);
@@ -140,23 +133,16 @@ std::vector<upgrade_path> catalog_generator::get_upgrade_paths(const std::vector
 			work.emplace(commit.merge_from);
 		}
 
-		auto done = true;
-
 		for(const auto &upgrade_path : upgrade_paths)
 		{
 			if(from_to.find(upgrade_path.commit_id) == from_to.cend())
 			{
-				done = false;
-				break;
+				goto done;
 			}
-		}
-
-		if(done)
-		{
-			break;
 		}
 	}
 
+done:
 	for(auto &upgrade_path : upgrade_paths)
 	{
 		auto commit_id = upgrade_path.commit_id;
@@ -174,22 +160,19 @@ std::vector<upgrade_path> catalog_generator::get_upgrade_paths(const std::vector
 
 void catalog_generator::merge(std::vector<int> &replay_path, const std::vector<int> &from_path, const std::vector<int> &to_path, std::size_t current_index)
 {
-	auto from_index = 1u;
-
 	for(int i = static_cast<int>(from_path.size()) - 2; i >= 0; --i)
 	{
 		for(int j = static_cast<int>(current_index) - 1; j >= 0; --j)
 		{
 			if(commits_[to_path[j]].merge_from == from_path[i])
 			{
-				from_index = i + 1;
-				goto found;
+				replay(replay_path, from_path, i + 1, from_path.size());
+				return;
 			}
 		}
 	}
 
-found:
-	replay(replay_path, from_path, from_index, from_path.size());
+	replay(replay_path, from_path, 1, from_path.size());
 }
 
 void catalog_generator::replay(std::vector<int> &replay_path, const std::vector<int> &path, std::size_t from_index, std::size_t to_index)
@@ -205,7 +188,7 @@ void catalog_generator::replay(std::vector<int> &replay_path, const std::vector<
 				auto merge_from_path = get_direct_path(commit.id);
 				merge(replay_path, merge_from_path, path, current_index);
 
-				from_index = merge_from_path.size() - 1;
+				from_index = merge_from_path.size();
 				merge_from_path.insert(merge_from_path.end(), path.cbegin() + current_index + 1, path.cend());
 
 				replay(replay_path, merge_from_path, from_index, merge_from_path.size());

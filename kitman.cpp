@@ -75,7 +75,6 @@ std::vector<upgrade> kitman::get_catalog(const std::string &stream, std::vector<
 {
 	const auto head = get_head(stream);
 	const auto &last_tag = get_last_tag(head);
-	const auto stop_commit = get_commit(last_tag);
 
 	if(std::find(paths.cbegin(), paths.cend(), last_tag) == paths.cend())
 	{
@@ -84,10 +83,7 @@ std::vector<upgrade> kitman::get_catalog(const std::string &stream, std::vector<
 
 	sort_tags(paths, last_tag);
 
-	catalog_generator generator
-	{
-		*this, head, stop_commit
-	};
+	catalog_generator generator{*this, head};
 
 	auto upgrades = generator.generate(paths);
 
