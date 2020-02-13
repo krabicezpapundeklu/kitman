@@ -1,9 +1,12 @@
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 #include <boost/program_options.hpp>
 
 #include "http_listener.hpp"
 #include "kitman.hpp"
+#include "utils.hpp"
 
 extern "C"
 {
@@ -11,11 +14,13 @@ extern "C"
 }
 
 namespace asio = boost::asio;
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
 
 int main(int argc, char **argv)
 {
 	std::string db_path;
+	std::string generate_from;
 	unsigned short port;
 	std::string web_root;
 
@@ -29,6 +34,7 @@ int main(int argc, char **argv)
 	po::options_description hidden_options;
 
 	hidden_options.add_options()
+		("generate-from", po::value(&generate_from)->default_value(""), "generate all catalogs for all databases in this folder")
 		("shell", "start sql shell")
 		("web-root", po::value(&web_root)->default_value(""), "web-site root");
 
@@ -43,6 +49,31 @@ int main(int argc, char **argv)
 	{
 		std::cout << "Usage: kitman [options]\n\n" << options << '\n' << e.what() << '\n';
 		return EXIT_FAILURE;
+	}
+
+	if(!generate_from.empty())
+	{
+		for(fs::directory_iterator it{generate_from}, end; it != end; ++it)
+		{
+			if(it->path().extension() != ".db")
+			{
+				continue;
+			}
+
+			kitman kitman{it->path().string().c_str()};
+
+			for(const auto &stream : kitman.get_streams())
+			{
+				auto paths = kitman.get_paths(stream.name);
+				const auto &upgrades = kitman.get_catalog(stream.name, paths);
+				auto path = it->path();
+
+				std::ofstream out{path.replace_extension(stream.name + ".xml"), std::ios_base::binary};
+				out << upgrades;
+			}
+		}
+
+		return EXIT_SUCCESS;
 	}
 
 	if(vm.find("shell") != vm.cend())
