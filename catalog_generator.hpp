@@ -21,7 +21,7 @@ private:
 
 	std::unordered_map<int, path_commit> get_commits(int head);
 	std::vector<int> get_direct_path(int to);
-	std::vector<upgrade_path> get_upgrade_paths(const std::vector<std::string> &paths);
+	upgrade_path get_upgrade_path(const std::string &path);
 
 	const std::vector<file> &get_files(int commit_id);
 	const std::string &get_last_tag(int commit_id);

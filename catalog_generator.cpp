@@ -17,10 +17,10 @@ std::vector<upgrade> catalog_generator::generate(const std::vector<std::string> 
 	std::vector<int> replay_path;
 	std::vector<script> scripts;
 
-	const auto &upgrade_paths = get_upgrade_paths(paths);
-
-	for(const auto &upgrade_path : upgrade_paths)
+	for(const auto &p : paths)
 	{
+		const auto &upgrade_path = get_upgrade_path(p);
+
 		replay_path.clear();
 		scripts.clear();
 
@@ -96,14 +96,9 @@ const std::string &catalog_generator::get_last_tag(int commit_id)
 	return it->second;
 }
 
-std::vector<upgrade_path> catalog_generator::get_upgrade_paths(const std::vector<std::string> &paths)
+upgrade_path catalog_generator::get_upgrade_path(const std::string &path)
 {
-	std::vector<upgrade_path> upgrade_paths;
-
-	for(const auto &path : paths)
-	{
-		upgrade_paths.emplace_back(path, kitman_.get_commit(path));
-	}
+	upgrade_path upgrade_path{path, kitman_.get_commit(path)};
 
 	std::unordered_map<int, int> from_to;
 	std::unordered_set<int> visited;
@@ -133,45 +128,35 @@ std::vector<upgrade_path> catalog_generator::get_upgrade_paths(const std::vector
 			work.emplace(commit.merge_from);
 		}
 
-		auto done = true;
-
-		for(const auto &upgrade_path : upgrade_paths)
-		{
-			if(from_to.find(upgrade_path.commit_id) == from_to.cend())
-			{
-				done = false;
-				break;
-			}
-		}
-
-		if(done)
+		if(from_to.find(upgrade_path.commit_id) != from_to.cend())
 		{
 			break;
 		}
 	}
 
-	for(auto &upgrade_path : upgrade_paths)
+	auto commit_id = upgrade_path.commit_id;
+
+	do
 	{
-		auto commit_id = upgrade_path.commit_id;
-
-		do
-		{
-			upgrade_path.shortest_path.emplace_back(commit_id);
-			commit_id = from_to[commit_id];
-		}
-		while(commit_id);
+		upgrade_path.shortest_path.emplace_back(commit_id);
+		commit_id = from_to[commit_id];
 	}
+	while(commit_id);
 
-	return upgrade_paths;
+	return upgrade_path;
 }
 
 void catalog_generator::merge(std::vector<int> &replay_path, const std::vector<int> &from_path, const std::vector<int> &to_path, std::size_t current_index)
 {
 	for(int i = static_cast<int>(from_path.size()) - 2; i >= 0; --i)
 	{
+		const auto &from_commit = commits_[from_path[i]];
+
 		for(int j = static_cast<int>(current_index) - 1; j >= 0; --j)
 		{
-			if(commits_[to_path[j]].merge_from == from_path[i])
+			const auto &to_commit = commits_[to_path[j]];
+
+			if(from_commit.merge_from == to_commit.id || to_commit.merge_from == from_commit.id)
 			{
 				replay(replay_path, from_path, i + 1, from_path.size());
 				return;
